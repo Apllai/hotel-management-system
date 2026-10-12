@@ -1,9 +1,25 @@
+import { useQuery } from '@tanstack/react-query'
+import { Plus } from 'lucide-react'
 import { PageHeader } from '@/components/common/StatCard'
+import { guestService } from '@/services/guestService'
 
 export function GuestsPage() {
+  const { data: guests, isLoading } = useQuery({
+    queryKey: ['guests'],
+    queryFn: () => guestService.getGuests(),
+  })
+
   return (
     <div>
-      <PageHeader title="Guests" subtitle="Manage visitor profiles and booking history" action={<button className="rounded-xl bg-navy-900 px-4 py-2 text-sm font-medium text-white">Add guest</button>} />
+      <PageHeader
+        title="Guests"
+        subtitle="Manage visitor profiles and booking history"
+        action={
+          <button className="inline-flex items-center gap-2 rounded-xl bg-navy-900 px-4 py-2 text-sm font-medium text-white">
+            <Plus className="h-4 w-4" /> Add guest
+          </button>
+        }
+      />
       <div className="card overflow-hidden">
         <div className="overflow-x-auto">
           <table className="min-w-full text-left text-sm">
@@ -12,22 +28,32 @@ export function GuestsPage() {
                 <th className="px-4 py-3 font-medium text-slate-700">Guest</th>
                 <th className="px-4 py-3 font-medium text-slate-700">Email</th>
                 <th className="px-4 py-3 font-medium text-slate-700">Phone</th>
-                <th className="px-4 py-3 font-medium text-slate-700">Bookings</th>
+                <th className="px-4 py-3 font-medium text-slate-700">Nationality</th>
               </tr>
             </thead>
             <tbody>
-              {[
-                ['Emily Parker', 'emily@email.com', '+1 415 000 1234', '3'],
-                ['Noah Chen', 'noah@email.com', '+1 415 111 4567', '2'],
-                ['Liam Smith', 'liam@email.com', '+1 415 222 7890', '1'],
-              ].map(([name, email, phone, bookings]) => (
-                <tr key={name} className="border-t border-slate-100">
-                  <td className="px-4 py-3">{name}</td>
-                  <td className="px-4 py-3">{email}</td>
-                  <td className="px-4 py-3">{phone}</td>
-                  <td className="px-4 py-3">{bookings}</td>
+              {isLoading ? (
+                <tr>
+                  <td colSpan={4} className="px-4 py-8 text-center text-slate-500">
+                    Loading guests...
+                  </td>
                 </tr>
-              ))}
+              ) : (guests || []).length > 0 ? (
+                (guests || []).map((guest: any) => (
+                  <tr key={guest.id} className="border-t border-slate-100">
+                    <td className="px-4 py-3 font-medium">{guest.fullName}</td>
+                    <td className="px-4 py-3">{guest.email || '-'}</td>
+                    <td className="px-4 py-3">{guest.phone || '-'}</td>
+                    <td className="px-4 py-3">{guest.nationality || '-'}</td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td colSpan={4} className="px-4 py-8 text-center text-slate-500">
+                    No guests found
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>

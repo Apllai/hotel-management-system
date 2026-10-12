@@ -1,9 +1,40 @@
 import { useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
+import { useForm } from 'react-hook-form'
+import { z } from 'zod'
+import { zodResolver } from '@hookform/resolvers/zod'
+import { Loader } from 'lucide-react'
+import { useAuth } from '@/context/AuthContext'
+
+const loginSchema = z.object({
+  email: z.string().email('Invalid email address'),
+  password: z.string().min(6, 'Password must be at least 6 characters'),
+})
+
+type LoginForm = z.infer<typeof loginSchema>
 
 export function LoginPage() {
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
+  const { login } = useAuth()
+  const navigate = useNavigate()
+  const [isLoading, setIsLoading] = useState(false)
+
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+  } = useForm<LoginForm>({
+    resolver: zodResolver(loginSchema),
+  })
+
+  const onSubmit = async (data: LoginForm) => {
+    setIsLoading(true)
+    try {
+      await login(data.email, data.password)
+      navigate('/')
+    } finally {
+      setIsLoading(false)
+    }
+  }
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-slate-100 p-6">
@@ -13,16 +44,16 @@ export function LoginPage() {
           <h1 className="mt-3 text-3xl font-semibold text-slate-900">Sign in</h1>
         </div>
 
-        <form className="space-y-5">
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
           <div>
             <label className="mb-2 block text-sm font-medium text-slate-700">Email</label>
             <input
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              {...register('email')}
               type="email"
               className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 outline-none transition focus:border-navy-500 focus:bg-white"
-              placeholder="name@hotel.com"
+              placeholder="admin@hotel.local"
             />
+            {errors.email && <p className="mt-1 text-sm text-red-600">{errors.email.message}</p>}
           </div>
 
           <div>
@@ -33,16 +64,20 @@ export function LoginPage() {
               </Link>
             </div>
             <input
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              {...register('password')}
               type="password"
               className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 outline-none transition focus:border-navy-500 focus:bg-white"
-              placeholder="••••••••"
+              placeholder="Secret123!"
             />
+            {errors.password && <p className="mt-1 text-sm text-red-600">{errors.password.message}</p>}
           </div>
 
-          <button type="submit" className="w-full rounded-xl bg-navy-900 px-4 py-3 font-medium text-white transition hover:bg-navy-800">
-            Sign in
+          <button
+            type="submit"
+            disabled={isLoading}
+            className="w-full rounded-xl bg-navy-900 px-4 py-3 font-medium text-white transition disabled:opacity-50 hover:bg-navy-800"
+          >
+            {isLoading ? <Loader className="inline h-4 w-4 animate-spin" /> : 'Sign in'}
           </button>
         </form>
 
