@@ -1,6 +1,6 @@
 import type { Request, Response, NextFunction } from 'express';
-import { prisma } from '../config/prisma.js';
 import bcrypt from 'bcryptjs';
+import { prisma } from '../config/prisma.js';
 import { registerSchema, loginSchema } from '../validators/schemas.js';
 import { signToken } from '../middleware/auth.js';
 
@@ -23,7 +23,11 @@ export const register = async (req: Request, res: Response, next: NextFunction) 
     });
 
     const token = signToken({ id: user.id, email: user.email, role: user.role });
-    res.status(201).json({ success: true, token, user: { id: user.id, email: user.email, name: user.name, role: user.role } });
+    return res.status(201).json({
+      success: true,
+      token,
+      user: { id: user.id, email: user.email, name: user.name, role: user.role },
+    });
   } catch (error) {
     next(error);
   }
@@ -33,6 +37,7 @@ export const login = async (req: Request, res: Response, next: NextFunction) => 
   try {
     const parsed = loginSchema.parse(req.body);
     const user = await prisma.user.findUnique({ where: { email: parsed.email } });
+
     if (!user) {
       return res.status(401).json({ success: false, message: 'Invalid email or password.' });
     }
@@ -43,7 +48,11 @@ export const login = async (req: Request, res: Response, next: NextFunction) => 
     }
 
     const token = signToken({ id: user.id, email: user.email, role: user.role });
-    res.json({ success: true, token, user: { id: user.id, email: user.email, name: user.name, role: user.role } });
+    return res.json({
+      success: true,
+      token,
+      user: { id: user.id, email: user.email, name: user.name, role: user.role },
+    });
   } catch (error) {
     next(error);
   }
@@ -60,7 +69,10 @@ export const me = async (req: Request, res: Response) => {
     return res.status(404).json({ success: false, message: 'User record not found.' });
   }
 
-  res.json({ success: true, user: { id: user.id, email: user.email, name: user.name, role: user.role } });
+  return res.json({
+    success: true,
+    user: { id: user.id, email: user.email, name: user.name, role: user.role },
+  });
 };
 
 export const logout = (_req: Request, res: Response) => {

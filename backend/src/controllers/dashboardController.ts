@@ -1,6 +1,6 @@
-import type { Request, Response, NextFunction } from 'express';
+import type { NextFunction, Request, Response } from 'express';
 import { prisma } from '../config/prisma.js';
-import { roomSchema, guestSchema, reservationSchema, paymentSchema, housekeepingTaskSchema } from '../validators/schemas.js';
+import { guestSchema, housekeepingTaskSchema, paymentSchema, reservationSchema, roomSchema } from '../validators/schemas.js';
 
 const computeNights = (checkIn: Date, checkOut: Date) => {
   const diff = checkOut.getTime() - checkIn.getTime();
@@ -9,15 +9,13 @@ const computeNights = (checkIn: Date, checkOut: Date) => {
 
 export const getDashboardSummary = async (_req: Request, res: Response, next: NextFunction) => {
   try {
-    const [totalRooms, availableRooms, occupiedRooms, reservedRooms, maintenanceRooms, totalReservations, todayCheckIns, todayCheckOuts, monthlyRevenue] = await Promise.all([
+    const [totalRooms, availableRooms, occupiedRooms, reservedRooms, maintenanceRooms, totalReservations, monthlyRevenue] = await Promise.all([
       prisma.room.count({ where: { active: true } }),
       prisma.room.count({ where: { active: true, status: 'AVAILABLE' } }),
       prisma.room.count({ where: { active: true, status: 'OCCUPIED' } }),
       prisma.room.count({ where: { active: true, status: 'RESERVED' } }),
       prisma.room.count({ where: { active: true, status: 'MAINTENANCE' } }),
       prisma.reservation.count(),
-      prisma.reservation.count({ where: { status: 'CONFIRMED', checkIn: { gte: new Date(new Date().setHours(0, 0, 0, 0)) } } }),
-      prisma.reservation.count({ where: { status: 'CHECKED_OUT', checkedOutAt: { gte: new Date(new Date().setHours(0, 0, 0, 0)) } } }),
       prisma.reservation.aggregate({ _sum: { total: true }, where: { createdAt: { gte: new Date(new Date().getFullYear(), new Date().getMonth(), 1) } } }),
     ]);
 
@@ -35,7 +33,7 @@ export const getDashboardSummary = async (_req: Request, res: Response, next: Ne
       include: { guest: true, reservation: true },
     });
 
-    res.json({
+    return res.json({
       success: true,
       summary: {
         totalRooms,
@@ -44,8 +42,6 @@ export const getDashboardSummary = async (_req: Request, res: Response, next: Ne
         reservedRooms,
         maintenanceRooms,
         totalReservations,
-        todayCheckIns,
-        todayCheckOuts,
         monthlyRevenue: Number(monthlyRevenue._sum.total || 0),
         occupancyRate: Number(occupancyRate.toFixed(2)),
       },
@@ -59,14 +55,17 @@ export const getDashboardSummary = async (_req: Request, res: Response, next: Ne
 
 export const getDashboardRevenue = async (_req: Request, res: Response, next: NextFunction) => {
   try {
-    const start = new Date(); start.setDate(1); start.setHours(0,0,0,0);
-    const revenue = await prisma.reservation.groupBy({
+    const start = new Date();
+    start.setDate(1);
+    start.setHours(0, 0, 0, 0);
+
+    const data = await prisma.reservation.groupBy({
       by: ['createdAt'],
       _sum: { total: true },
       where: { createdAt: { gte: start } },
     });
 
-    res.json({ success: true, revenue });
+    return res.json({ success: true, data });
   } catch (error) {
     next(error);
   }
@@ -74,8 +73,11 @@ export const getDashboardRevenue = async (_req: Request, res: Response, next: Ne
 
 export const getDashboardOccupancy = async (_req: Request, res: Response, next: NextFunction) => {
   try {
-    const rooms = await prisma.room.findMany({ select: { roomNumber: true, status: true } });
-    res.json({ success: true, occupancy: rooms });
+    const rooms = await prisma.room.findMany({
+      select: { roomNumber: true, status: true },
+      orderBy: { roomNumber: 'asc' },
+    });
+    return res.json({ success: true, data: rooms });
   } catch (error) {
     next(error);
   }
@@ -84,7 +86,7 @@ export const getDashboardOccupancy = async (_req: Request, res: Response, next: 
 export const listRooms = async (_req: Request, res: Response, next: NextFunction) => {
   try {
     const rooms = await prisma.room.findMany({ orderBy: { roomNumber: 'asc' } });
-    res.json({ success: true, data: rooms });
+    return res.json({ success: true, data: rooms });
   } catch (error) {
     next(error);
   }
@@ -101,7 +103,7 @@ export const createRoom = async (req: Request, res: Response, next: NextFunction
         imageUrl: parsed.imageUrl || null,
       },
     });
-    res.status(201).json({ success: true, data: room });
+    return res.status(201).json({ success: true, data: room });
   } catch (error) {
     next(error);
   }
@@ -114,7 +116,7 @@ export const updateRoom = async (req: Request, res: Response, next: NextFunction
       where: { id: req.params.id },
       data: parsed,
     });
-    res.json({ success: true, data: room });
+    return res.json({ success: true, data: room });
   } catch (error) {
     next(error);
   }
@@ -123,7 +125,7 @@ export const updateRoom = async (req: Request, res: Response, next: NextFunction
 export const deleteRoom = async (req: Request, res: Response, next: NextFunction) => {
   try {
     await prisma.room.delete({ where: { id: req.params.id } });
-    res.json({ success: true, message: 'Room deleted.' });
+    return res.json({ success: true, message: 'Room deleted.' });
   } catch (error) {
     next(error);
   }
@@ -156,7 +158,7 @@ export const getAvailableRooms = async (req: Request, res: Response, next: NextF
       if (!overlaps) available.push(room);
     }
 
-    res.json({ success: true, data: available });
+    return res.json({ success: true, data: available });
   } catch (error) {
     next(error);
   }
@@ -165,7 +167,7 @@ export const getAvailableRooms = async (req: Request, res: Response, next: NextF
 export const listGuests = async (_req: Request, res: Response, next: NextFunction) => {
   try {
     const guests = await prisma.guest.findMany({ orderBy: { createdAt: 'desc' } });
-    res.json({ success: true, data: guests });
+    return res.json({ success: true, data: guests });
   } catch (error) {
     next(error);
   }
@@ -175,7 +177,7 @@ export const createGuest = async (req: Request, res: Response, next: NextFunctio
   try {
     const parsed = guestSchema.parse(req.body);
     const guest = await prisma.guest.create({ data: parsed });
-    res.status(201).json({ success: true, data: guest });
+    return res.status(201).json({ success: true, data: guest });
   } catch (error) {
     next(error);
   }
@@ -184,8 +186,11 @@ export const createGuest = async (req: Request, res: Response, next: NextFunctio
 export const updateGuest = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const parsed = guestSchema.partial().parse(req.body);
-    const guest = await prisma.guest.update({ where: { id: req.params.id }, data: parsed });
-    res.json({ success: true, data: guest });
+    const guest = await prisma.guest.update({
+      where: { id: req.params.id },
+      data: parsed,
+    });
+    return res.json({ success: true, data: guest });
   } catch (error) {
     next(error);
   }
@@ -193,11 +198,11 @@ export const updateGuest = async (req: Request, res: Response, next: NextFunctio
 
 export const listReservations = async (_req: Request, res: Response, next: NextFunction) => {
   try {
-    const list = await prisma.reservation.findMany({
+    const reservations = await prisma.reservation.findMany({
       orderBy: { createdAt: 'desc' },
       include: { guest: true, room: true },
     });
-    res.json({ success: true, data: list });
+    return res.json({ success: true, data: reservations });
   } catch (error) {
     next(error);
   }
@@ -257,7 +262,7 @@ export const createReservation = async (req: Request, res: Response, next: NextF
       include: { guest: true, room: true },
     });
 
-    res.status(201).json({ success: true, data: reservation });
+    return res.status(201).json({ success: true, data: reservation });
   } catch (error) {
     next(error);
   }
@@ -267,10 +272,14 @@ export const updateReservation = async (req: Request, res: Response, next: NextF
   try {
     const reservation = await prisma.reservation.update({
       where: { id: req.params.id },
-      data: { status: req.body.status, paymentStatus: req.body.paymentStatus, specialRequests: req.body.specialRequests },
+      data: {
+        status: req.body.status,
+        paymentStatus: req.body.paymentStatus,
+        specialRequests: req.body.specialRequests,
+      },
       include: { guest: true, room: true },
     });
-    res.json({ success: true, data: reservation });
+    return res.json({ success: true, data: reservation });
   } catch (error) {
     next(error);
   }
@@ -282,7 +291,7 @@ export const cancelReservation = async (req: Request, res: Response, next: NextF
       where: { id: req.params.id },
       data: { status: 'CANCELLED' },
     });
-    res.json({ success: true, data: reservation });
+    return res.json({ success: true, data: reservation });
   } catch (error) {
     next(error);
   }
@@ -297,7 +306,7 @@ export const checkInReservation = async (req: Request, res: Response, next: Next
         checkedInAt: new Date(),
       },
     });
-    res.json({ success: true, data: reservation });
+    return res.json({ success: true, data: reservation });
   } catch (error) {
     next(error);
   }
@@ -320,7 +329,7 @@ export const checkOutReservation = async (req: Request, res: Response, next: Nex
       });
     }
 
-    res.json({ success: true, data: reservation });
+    return res.json({ success: true, data: reservation });
   } catch (error) {
     next(error);
   }
@@ -328,8 +337,11 @@ export const checkOutReservation = async (req: Request, res: Response, next: Nex
 
 export const listPayments = async (_req: Request, res: Response, next: NextFunction) => {
   try {
-    const payments = await prisma.payment.findMany({ orderBy: { createdAt: 'desc' }, include: { reservation: true, guest: true } });
-    res.json({ success: true, data: payments });
+    const payments = await prisma.payment.findMany({
+      orderBy: { createdAt: 'desc' },
+      include: { guest: true, reservation: true },
+    });
+    return res.json({ success: true, data: payments });
   } catch (error) {
     next(error);
   }
@@ -347,36 +359,39 @@ export const createPayment = async (req: Request, res: Response, next: NextFunct
         status: 'PAID',
         notes: parsed.notes || null,
       },
-      include: { reservation: true, guest: true },
+      include: { guest: true, reservation: true },
     });
-    res.status(201).json({ success: true, data: payment });
+    return res.status(201).json({ success: true, data: payment });
   } catch (error) {
     next(error);
   }
 };
 
-export const getInvoices = async (req: Request, res: Response, next: NextFunction) => {
+export const getInvoice = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const invoice = await prisma.invoice.findUnique({
       where: { id: req.params.id },
       include: { items: true, reservation: { include: { guest: true } } },
     });
-    res.json({ success: true, data: invoice });
+    return res.json({ success: true, data: invoice });
   } catch (error) {
     next(error);
   }
 };
 
-export const listTasks = async (_req: Request, res: Response, next: NextFunction) => {
+export const listHousekeepingTasks = async (_req: Request, res: Response, next: NextFunction) => {
   try {
-    const tasks = await prisma.housekeepingTask.findMany({ orderBy: { createdAt: 'desc' }, include: { room: true } });
-    res.json({ success: true, data: tasks });
+    const tasks = await prisma.housekeepingTask.findMany({
+      orderBy: { createdAt: 'desc' },
+      include: { room: true },
+    });
+    return res.json({ success: true, data: tasks });
   } catch (error) {
     next(error);
   }
 };
 
-export const createTask = async (req: Request, res: Response, next: NextFunction) => {
+export const createHousekeepingTask = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const parsed = housekeepingTaskSchema.parse(req.body);
     const task = await prisma.housekeepingTask.create({
@@ -391,20 +406,24 @@ export const createTask = async (req: Request, res: Response, next: NextFunction
       },
       include: { room: true },
     });
-    res.status(201).json({ success: true, data: task });
+    return res.status(201).json({ success: true, data: task });
   } catch (error) {
     next(error);
   }
 };
 
-export const updateTask = async (req: Request, res: Response, next: NextFunction) => {
+export const updateHousekeepingTask = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const task = await prisma.housekeepingTask.update({
       where: { id: req.params.id },
-      data: { status: req.body.status, notes: req.body.notes },
+      data: {
+        status: req.body.status,
+        notes: req.body.notes,
+        assignedTo: req.body.assignedTo,
+      },
       include: { room: true },
     });
-    res.json({ success: true, data: task });
+    return res.json({ success: true, data: task });
   } catch (error) {
     next(error);
   }
@@ -415,9 +434,9 @@ export const getRevenueReports = async (_req: Request, res: Response, next: Next
     const reports = await prisma.reservation.groupBy({
       by: ['status'],
       _sum: { total: true },
-      where: { createdAt: { gte: new Date(new Date().setDate(new Date().getDate() - 30)) } },
+      where: { createdAt: { gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) } },
     });
-    res.json({ success: true, data: reports });
+    return res.json({ success: true, data: reports });
   } catch (error) {
     next(error);
   }
@@ -425,8 +444,10 @@ export const getRevenueReports = async (_req: Request, res: Response, next: Next
 
 export const getOccupancyReports = async (_req: Request, res: Response, next: NextFunction) => {
   try {
-    const rooms = await prisma.room.findMany({ select: { roomNumber: true, status: true } });
-    res.json({ success: true, data: rooms });
+    const rooms = await prisma.room.findMany({
+      select: { roomNumber: true, status: true, roomType: true },
+    });
+    return res.json({ success: true, data: rooms });
   } catch (error) {
     next(error);
   }
@@ -434,8 +455,11 @@ export const getOccupancyReports = async (_req: Request, res: Response, next: Ne
 
 export const getBookingReports = async (_req: Request, res: Response, next: NextFunction) => {
   try {
-    const reports = await prisma.reservation.findMany({ include: { guest: true, room: true } });
-    res.json({ success: true, data: reports });
+    const reservations = await prisma.reservation.findMany({
+      include: { guest: true, room: true },
+      orderBy: { createdAt: 'desc' },
+    });
+    return res.json({ success: true, data: reservations });
   } catch (error) {
     next(error);
   }

@@ -1,4 +1,4 @@
-import type { Request, Response, NextFunction } from 'express';
+import type { NextFunction, Request, Response } from 'express';
 import jwt from 'jsonwebtoken';
 import { prisma } from '../config/prisma.js';
 import { env } from '../config/env.js';
@@ -36,7 +36,7 @@ export const authenticate = async (req: Request, _res: Response, next: NextFunct
 
     req.user = { id: user.id, email: user.email, role: user.role };
     next();
-  } catch (error) {
+  } catch {
     next({ status: 401, message: 'Invalid or expired token.' });
   }
 };

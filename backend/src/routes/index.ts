@@ -1,32 +1,32 @@
 import { Router } from 'express';
 import { register, login, me, logout } from '../controllers/authController.js';
 import {
-  getDashboardSummary,
-  getDashboardRevenue,
-  getDashboardOccupancy,
-  listRooms,
+  createGuest,
+  createHousekeepingTask,
+  createPayment,
+  createReservation,
   createRoom,
-  updateRoom,
   deleteRoom,
   getAvailableRooms,
+  getBookingReports,
+  getDashboardOccupancy,
+  getDashboardRevenue,
+  getDashboardSummary,
+  getInvoice,
+  getOccupancyReports,
+  getRevenueReports,
   listGuests,
-  createGuest,
-  updateGuest,
+  listHousekeepingTasks,
+  listPayments,
   listReservations,
-  createReservation,
+  listRooms,
+  updateGuest,
+  updateHousekeepingTask,
   updateReservation,
+  updateRoom,
   cancelReservation,
   checkInReservation,
   checkOutReservation,
-  listPayments,
-  createPayment,
-  getInvoices,
-  listTasks,
-  createTask,
-  updateTask,
-  getRevenueReports,
-  getOccupancyReports,
-  getBookingReports,
 } from '../controllers/dashboardController.js';
 import { authenticate, requireRole } from '../middleware/auth.js';
 
@@ -52,7 +52,7 @@ router.post('/guests', authenticate, requireRole('ADMIN', 'RECEPTIONIST', 'MANAG
 router.patch('/guests/:id', authenticate, requireRole('ADMIN', 'RECEPTIONIST', 'MANAGER'), updateGuest);
 
 router.get('/reservations', authenticate, listReservations);
-router.post('/reservations', authenticate, requireRole('ADMIN', 'RECEPTIONIST', 'MANAGER', 'GUEST'), createReservation);
+router.post('/reservations', authenticate, createReservation);
 router.patch('/reservations/:id', authenticate, requireRole('ADMIN', 'RECEPTIONIST', 'MANAGER'), updateReservation);
 router.post('/reservations/:id/cancel', authenticate, requireRole('ADMIN', 'RECEPTIONIST', 'MANAGER'), cancelReservation);
 router.post('/reservations/:id/check-in', authenticate, requireRole('ADMIN', 'RECEPTIONIST'), checkInReservation);
@@ -60,11 +60,11 @@ router.post('/reservations/:id/check-out', authenticate, requireRole('ADMIN', 'R
 
 router.get('/payments', authenticate, listPayments);
 router.post('/payments', authenticate, requireRole('ADMIN', 'RECEPTIONIST'), createPayment);
-router.get('/invoices/:id', authenticate, getInvoices);
+router.get('/invoices/:id', authenticate, getInvoice);
 
-router.get('/housekeeping/tasks', authenticate, listTasks);
-router.post('/housekeeping/tasks', authenticate, requireRole('ADMIN', 'MANAGER', 'HOUSEKEEPING'), createTask);
-router.patch('/housekeeping/tasks/:id', authenticate, requireRole('ADMIN', 'MANAGER', 'HOUSEKEEPING'), updateTask);
+router.get('/housekeeping/tasks', authenticate, listHousekeepingTasks);
+router.post('/housekeeping/tasks', authenticate, requireRole('ADMIN', 'MANAGER', 'HOUSEKEEPING'), createHousekeepingTask);
+router.patch('/housekeeping/tasks/:id', authenticate, requireRole('ADMIN', 'MANAGER', 'HOUSEKEEPING'), updateHousekeepingTask);
 
 router.get('/reports/revenue', authenticate, requireRole('ADMIN', 'MANAGER'), getRevenueReports);
 router.get('/reports/occupancy', authenticate, requireRole('ADMIN', 'MANAGER'), getOccupancyReports);
